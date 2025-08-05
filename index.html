@@ -5,106 +5,222 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>График посещений</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-    th { background-color: #f4f4f4; }
-    .cell { height: 30px; cursor: pointer; }
-    .red { background-color: #ffcccc; }
-    .yellow { background-color: #ffffcc; }
-    .green { background-color: #ccffcc; }
-    .blue { background-color: #ccccff; }
-    .no-color { background-color: transparent; }
-    .person-input { margin-bottom: 10px; width: 300px; }
-    button { margin-left: 10px; }
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      margin: 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: center;
+    }
+    th {
+      background-color: #f4f4f4;
+      height: 35px;
+      font-weight: normal;
+    }
+    .name-cell {
+      text-align: left;
+      font-weight: 500;
+      white-space: nowrap;
+      min-width: 180px;
+      width: auto;
+    }
+    .cell {
+      height: 40px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .cell.green    { background-color: #ccffcc !important; }
+    .cell.yellow   { background-color: #ffffcc !important; }
+    .cell.red      { background-color: #ffcccc !important; }
+    .cell.no-color { background-color: transparent !important; }
+
+    /* Серый фон только если нет других цветов */
+    .cell.weekend:not(.green):not(.yellow):not(.red) {
+    background-color: #e0e0e0 !important;
+    }
+    .month-header {
+      text-align: center;
+      font-size: 1.4em;
+      font-weight: bold;
+      padding: 12px 0;
+      background-color: #f0f0f0;
+    }
+    /* Только шапка с датой подсвечивается синим */
+    th.today-header {
+      background-color: #1890ff;
+      color: white;
+    }
   </style>
 </head>
 <body>
   <h2>График посещений</h2>
 
-  <div>
-    <input type="text" id="newPerson" class="person-input" placeholder="Имя сотрудника" />
-    <button onclick="addPerson()">Добавить</button>
-  </div>
-
   <table id="calendar">
     <thead>
-      <tr id="dates-row"></tr>
+      <!-- Исправлено: colspan="33" = 1 (имя) + 32 (дни) -->
+      <tr>
+        <th colspan="33" class="month-header" id="month-header">Загрузка...</th>
+      </tr>
+      <tr id="dates-row">
+        <th class="name-cell">Сотрудник</th>
+      </tr>
     </thead>
     <tbody id="people-body"></tbody>
   </table>
 
   <script>
-    const colors = ['no-color', 'red', 'yellow', 'green', 'blue'];
-    let people = JSON.parse(localStorage.getItem('people')) || ['Иван', 'Мария', 'Алексей'];
-    let data = JSON.parse(localStorage.getItem('calendarData')) || {};
+    const people = [
+      'Иван Костомаха',
+      'Павел Никулин',
+      'Егор Петренко'
+    ];
+
+    const colors = ['no-color', 'green', 'yellow', 'red'];
+
+    let data = JSON.parse(localStorage.getItem('visitCalendarData')) || {};
+
+    function getVisibleDates() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const dates = [];
+    for (let i = -7; i <= 21; i++) {
+        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+        dates.push(d);
+    }
+    return dates;
+    }
+
+    function isWeekend(date) {
+      const day = date.getDay();
+      return day === 0 || day === 6;
+    }
+
+    function formatDate(date) {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+    }
+
+    function formatMonthYear(date) {
+      return new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' }).format(date);
+    }
 
     function generateCalendar() {
       const datesRow = document.getElementById('dates-row');
       const peopleBody = document.getElementById('people-body');
-      datesRow.innerHTML = '';
+      const monthHeader = document.getElementById('month-header');
+
+      datesRow.innerHTML = '<th class="name-cell">Сотрудник</th>';
       peopleBody.innerHTML = '';
 
+      const visibleDates = getVisibleDates();
       const today = new Date();
-      const year = today.getFullYear();
-      const month = today.getMonth();
+      today.setHours(0, 0, 0, 0);
 
-      // Заголовок с месяцем
-      const monthName = new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' }).format(today);
-      datesRow.innerHTML = `<th style="text-align: center;" colspan="100">${monthName}</th>`;
+      // Заголовок месяца
+      const startMonth = formatMonthYear(visibleDates[0]);
+      const endMonth = formatMonthYear(visibleDates[visibleDates.length - 1]);
+      monthHeader.textContent = 
+        startMonth === endMonth ? startMonth : `${startMonth} — ${endMonth}`;
 
-      // Даты (на 30 дней)
-      for (let day = 1; day <= 30; day++) {
-        const date = new Date(year, month, day);
+      // Заголовки с датами
+      visibleDates.forEach(date => {
         const th = document.createElement('th');
-        th.textContent = day;
-        datesRow.appendChild(th);
-      }
+        th.textContent = date.getDate();
 
-      // Строки для людей
+        // Подсветка сегодняшнего дня в шапке
+        if (date.getTime() === today.getTime()) {
+          th.classList.add('today-header');
+        }
+
+        // Подсветка выходных в шапке
+        if (isWeekend(date)) {
+          th.classList.add('weekend');
+        }
+
+        datesRow.appendChild(th);
+      });
+
+      // Строки сотрудников
       people.forEach(person => {
         const tr = document.createElement('tr');
-        const th = document.createElement('th');
-        th.textContent = person;
-        tr.appendChild(th);
 
-        for (let day = 1; day <= 30; day++) {
+        const nameCell = document.createElement('td');
+        nameCell.textContent = person;
+        nameCell.className = 'name-cell';
+        tr.appendChild(nameCell);
+
+        visibleDates.forEach(date => {
           const cell = document.createElement('td');
-          cell.className = 'cell ' + (data[`${person}-${day}`] || 'no-color');
-          cell.onclick = () => cycleColor(cell, person, day);
+          const dateKey = formatDate(date);
+          const storageKey = `${person}-${dateKey}`;
+
+          // Устанавливаем цвет из хранилища
+          const currentColor = data[storageKey] || 'no-color';
+
+          // Если цвет задан — используем его, иначе для выходных — серый по умолчанию
+            if (currentColor !== 'no-color') {
+            cell.className = 'cell ' + currentColor;
+            } else {
+            cell.className = 'cell';
+            }
+
+            if (isWeekend(date)) {
+            cell.classList.add('weekend');
+            }
+
+          // Разрешаем клик — можно менять цвет даже у выходных и сегодня
+          cell.onclick = () => cycleColor(cell, person, dateKey);
+
           tr.appendChild(cell);
-        }
+        });
+
         peopleBody.appendChild(tr);
       });
     }
 
-    function cycleColor(cell, person, day) {
-      const key = `${person}-${day}`;
-      const current = data[key] || 'no-color';
-      const idx = (colors.indexOf(current) + 1) % colors.length;
-      const next = colors[idx];
-      data[key] = next;
-      cell.className = 'cell ' + next;
-      saveData();
-    }
+        function cycleColor(cell, person, dateKey) {
+        const storageKey = `${person}-${dateKey}`;
+        const current = data[storageKey] || 'no-color';
+        const currentIndex = colors.indexOf(current);
+        const nextIndex = (currentIndex + 1) % colors.length;
+        const nextColor = colors[nextIndex];
 
-    function addPerson() {
-      const input = document.getElementById('newPerson');
-      const name = input.value.trim();
-      if (name && !people.includes(name)) {
-        people.push(name);
-        input.value = '';
+        data[storageKey] = nextColor;
+
+        // Пересоздаём классы
+        cell.className = 'cell';
+        if (nextColor !== 'no-color') {
+            cell.classList.add(nextColor);
+        }
+
+        // Создаём локальную дату — важно!
+        const [year, month, day] = dateKey.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
+
+        if (isWeekend(date)) {
+            cell.classList.add('weekend');
+        }
+
         saveData();
-        generateCalendar();
-      }
-    }
+        }
+
 
     function saveData() {
-      localStorage.setItem('people', JSON.stringify(people));
-      localStorage.setItem('calendarData', JSON.stringify(data));
+      localStorage.setItem('visitCalendarData', JSON.stringify(data));
     }
 
-    // Запуск
+    // Генерация при загрузке
     generateCalendar();
   </script>
 </body>
