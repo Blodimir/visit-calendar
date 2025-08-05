@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>График посещений</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background-color: #f4f4f4; }
+    .cell { height: 30px; cursor: pointer; }
+    .red { background-color: #ffcccc; }
+    .yellow { background-color: #ffffcc; }
+    .green { background-color: #ccffcc; }
+    .blue { background-color: #ccccff; }
+    .no-color { background-color: transparent; }
+    .person-input { margin-bottom: 10px; width: 300px; }
+    button { margin-left: 10px; }
+  </style>
+</head>
+<body>
+  <h2>График посещений</h2>
+
+  <div>
+    <input type="text" id="newPerson" class="person-input" placeholder="Имя сотрудника" />
+    <button onclick="addPerson()">Добавить</button>
+  </div>
+
+  <table id="calendar">
+    <thead>
+      <tr id="dates-row"></tr>
+    </thead>
+    <tbody id="people-body"></tbody>
+  </table>
+
+  <script>
+    const colors = ['no-color', 'red', 'yellow', 'green', 'blue'];
+    let people = JSON.parse(localStorage.getItem('people')) || ['Иван', 'Мария', 'Алексей'];
+    let data = JSON.parse(localStorage.getItem('calendarData')) || {};
+
+    function generateCalendar() {
+      const datesRow = document.getElementById('dates-row');
+      const peopleBody = document.getElementById('people-body');
+      datesRow.innerHTML = '';
+      peopleBody.innerHTML = '';
+
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = today.getMonth();
+
+      // Заголовок с месяцем
+      const monthName = new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' }).format(today);
+      datesRow.innerHTML = `<th style="text-align: center;" colspan="100">${monthName}</th>`;
+
+      // Даты (на 30 дней)
+      for (let day = 1; day <= 30; day++) {
+        const date = new Date(year, month, day);
+        const th = document.createElement('th');
+        th.textContent = day;
+        datesRow.appendChild(th);
+      }
+
+      // Строки для людей
+      people.forEach(person => {
+        const tr = document.createElement('tr');
+        const th = document.createElement('th');
+        th.textContent = person;
+        tr.appendChild(th);
+
+        for (let day = 1; day <= 30; day++) {
+          const cell = document.createElement('td');
+          cell.className = 'cell ' + (data[`${person}-${day}`] || 'no-color');
+          cell.onclick = () => cycleColor(cell, person, day);
+          tr.appendChild(cell);
+        }
+        peopleBody.appendChild(tr);
+      });
+    }
+
+    function cycleColor(cell, person, day) {
+      const key = `${person}-${day}`;
+      const current = data[key] || 'no-color';
+      const idx = (colors.indexOf(current) + 1) % colors.length;
+      const next = colors[idx];
+      data[key] = next;
+      cell.className = 'cell ' + next;
+      saveData();
+    }
+
+    function addPerson() {
+      const input = document.getElementById('newPerson');
+      const name = input.value.trim();
+      if (name && !people.includes(name)) {
+        people.push(name);
+        input.value = '';
+        saveData();
+        generateCalendar();
+      }
+    }
+
+    function saveData() {
+      localStorage.setItem('people', JSON.stringify(people));
+      localStorage.setItem('calendarData', JSON.stringify(data));
+    }
+
+    // Запуск
+    generateCalendar();
+  </script>
+</body>
+</html>
